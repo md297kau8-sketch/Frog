@@ -1,0 +1,1239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<title>Swamp Quest - Enhanced Visuals Edition</title>
+
+<!-- Firebase App SDK & Realtime Database SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+
+<style>
+  :root {
+    --water-deep: #0284c7;
+    --water-surface: #38bdf8;
+    --wood-light: #dca067;
+    --wood-mid: #9b5a26;
+    --wood-dark: #451a03;
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  }
+
+  html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background-color: #020f1a;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+  #gameContainer {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    max-width: 440px;
+    max-height: 940px;
+    background: radial-gradient(circle at 50% 25%, #38bdf8 0%, #0284c7 40%, #0369a1 70%, #082f49 100%);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 25px 70px rgba(0, 0, 0, 0.95);
+  }
+
+  @media (min-height: 700px) and (min-width: 480px) {
+    #gameContainer {
+      border-radius: 36px;
+      height: 96vh;
+      border: 6px solid #1e293b;
+    }
+  }
+
+  canvas#waterCanvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+    pointer-events: none;
+  }
+
+  .top-header-clean {
+    position: relative;
+    z-index: 30;
+    padding: 12px 16px 4px 16px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .wallet-badge {
+    background: #1e293b;
+    border: 2px solid rgba(255,255,255,0.5);
+    border-radius: 26px;
+    padding: 4px 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.4);
+  }
+  .wallet-badge .coin-text {
+    color: #ffd700;
+    font-size: 16px;
+    font-weight: 900;
+    letter-spacing: 0.5px;
+  }
+
+  .signboard-area {
+    position: relative;
+    z-index: 25;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-top: 4px;
+  }
+
+  .wood-sign-arrow {
+    position: relative;
+    background: linear-gradient(180deg, #bf8144 0%, #874e21 60%, #613310 100%);
+    border: 3px solid #f6c07d;
+    outline: 2px solid #3c1e08;
+    padding: 6px 36px 6px 24px;
+    border-radius: 10px 20px 20px 10px;
+    box-shadow: 0 6px 16px rgba(0,0,0,0.45);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .wood-sign-arrow::after {
+    content: '';
+    position: absolute;
+    right: -16px;
+    top: 50%;
+    transform: translateY(-50%);
+    border-left: 16px solid #874e21;
+    border-top: 14px solid transparent;
+    border-bottom: 14px solid transparent;
+  }
+  .wood-sign-arrow h1 {
+    font-size: 17px;
+    font-weight: 900;
+    color: #fffae0;
+    text-shadow: 2px 2px 0px #351605, 0 0 8px rgba(0,0,0,0.5);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  .wood-message-plank {
+    width: 88%;
+    margin-top: 6px;
+    background: linear-gradient(180deg, #ba7c41 0%, #8d5022 50%, #683513 100%);
+    border: 3px solid #e2a86f;
+    outline: 2px solid #3b1c06;
+    border-radius: 12px;
+    padding: 7px 12px;
+    text-align: center;
+    color: #fff9e6;
+    font-size: 15px;
+    font-weight: 900;
+    text-shadow: 1px 2px 3px rgba(0,0,0,0.7);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.4);
+    position: relative;
+  }
+  .wood-message-plank::before, .wood-message-plank::after {
+    content: '';
+    position: absolute;
+    width: 6px;
+    height: 6px;
+    background: #3a1a05;
+    border-radius: 50%;
+    top: 50%;
+    transform: translateY(-50%);
+    box-shadow: inset 1px 1px 1px rgba(255,255,255,0.4);
+  }
+  .wood-message-plank::before { left: 10px; }
+  .wood-message-plank::after { right: 10px; }
+
+  /* Pond Play Area */
+  .pond-play-area {
+    position: relative;
+    z-index: 15;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: center;
+    padding-bottom: 6px;
+    padding-right: 56px;
+    padding-left: 10px;
+  }
+
+  .grid-water-surface {
+    width: 100%;
+    max-width: 350px;
+    display: flex;
+    flex-direction: column-reverse;
+    gap: 8px;
+    position: relative;
+  }
+
+  .pond-row {
+    position: relative;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    height: 58px;
+  }
+
+  .row-multiplier-pill {
+    position: absolute;
+    right: -54px;
+    background: rgba(3, 105, 161, 0.9);
+    border: 1.5px solid rgba(255, 255, 255, 0.8);
+    border-radius: 8px;
+    padding: 3px 6px;
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 900;
+    letter-spacing: 0.4px;
+    text-shadow: 0 1px 3px #000000;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.45);
+    pointer-events: none;
+    white-space: nowrap;
+  }
+
+  /* Lily Pad Node with Floating Wave Animation */
+  .pad-node {
+    width: 58px;
+    height: 58px;
+    position: relative;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: naturalPadFloat 3.8s ease-in-out infinite alternate;
+  }
+
+  .pad-node:nth-child(1) { animation-delay: 0.1s; }
+  .pad-node:nth-child(2) { animation-delay: 0.9s; }
+  .pad-node:nth-child(3) { animation-delay: 1.7s; }
+  .pad-node:nth-child(4) { animation-delay: 0.4s; }
+  .pad-node:nth-child(5) { animation-delay: 1.2s; }
+
+  @keyframes naturalPadFloat {
+    0% { transform: translateY(0px) rotate(0deg); }
+    50% { transform: translateY(-3.5px) rotate(1.2deg); }
+    100% { transform: translateY(2px) rotate(-1deg); }
+  }
+
+  .pad-node.active-row .pad-svg-instance {
+    filter: drop-shadow(0 0 12px rgba(255, 255, 255, 0.95)) drop-shadow(0 6px 12px rgba(0, 30, 80, 0.7));
+  }
+
+  .pad-svg-instance {
+    width: 100%;
+    height: 100%;
+    filter: drop-shadow(0 6px 10px rgba(1, 20, 50, 0.65));
+    transition: filter 0.3s ease, transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.5s ease;
+  }
+
+  .pad-node.landed-weight .pad-svg-instance {
+    transform: scale(0.92) translateY(5px);
+  }
+
+  .pad-node.sinking-rotten .pad-svg-instance {
+    transform: scale(0.15) translateY(45px) rotate(45deg) !important;
+    filter: brightness(0.15) saturate(2.5) blur(2px) !important;
+    opacity: 0 !important;
+  }
+
+  .home-base-pad-wrap {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-top: 8px;
+    height: 60px;
+    position: relative;
+  }
+
+  /* ========================================================
+     FROG CONTAINER & DYNAMIC JUMP MORPHING (MATCHING IMAGE)
+     ======================================================== */
+  #gameFrog {
+    position: absolute;
+    width: 58px;
+    height: 62px;
+    z-index: 50;
+    pointer-events: none;
+    transform: translate(-50%, -50%);
+    filter: drop-shadow(0 9px 14px rgba(0, 0, 0, 0.65));
+    transition: none;
+  }
+
+  .frog-inner-animator {
+    width: 100%;
+    height: 100%;
+    transform-origin: center center;
+    animation: gentleFrogBreathing 2.2s infinite ease-in-out;
+  }
+
+  @keyframes gentleFrogBreathing {
+    0%, 100% { transform: scale(1, 1); }
+    50% { transform: scale(1.04, 0.96); }
+  }
+
+  /* Limb animations during leap */
+  .frog-leg-left, .frog-leg-right,
+  .frog-arm-left, .frog-arm-right {
+    transition: transform 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+    transform-origin: center;
+  }
+
+  /* Leaping Flight State */
+  .frog-in-flight {
+    transition: top 0.44s cubic-bezier(0.25, 1, 0.36, 1), left 0.44s cubic-bezier(0.25, 1, 0.36, 1) !important;
+  }
+
+  .frog-in-flight .frog-inner-animator {
+    animation: none;
+    transform: scale(1.15, 1.25) translateY(-14px);
+  }
+
+  /* Hind legs extend backward/kick out during flight */
+  .frog-in-flight .frog-leg-left {
+    transform: translateY(12px) rotate(16deg) scaleY(1.35);
+  }
+  .frog-in-flight .frog-leg-right {
+    transform: translateY(12px) rotate(-16deg) scaleY(1.35);
+  }
+
+  /* Front arms stretch forward */
+  .frog-in-flight .frog-arm-left {
+    transform: translateY(-8px) scaleY(1.25);
+  }
+  .frog-in-flight .frog-arm-right {
+    transform: translateY(-8px) scaleY(1.25);
+  }
+
+  .water-splash-ring {
+    position: absolute;
+    width: 80px;
+    height: 80px;
+    border: 3.5px solid rgba(255, 255, 255, 0.95);
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 48;
+    transform: translate(-50%, -50%) scale(0.2);
+    animation: impactRipple 0.65s forwards ease-out;
+  }
+  @keyframes impactRipple {
+    0% { transform: translate(-50%, -50%) scale(0.2); opacity: 1; }
+    100% { transform: translate(-50%, -50%) scale(1.5); opacity: 0; }
+  }
+
+  /* Scoreboard & Controls */
+  .scoreboard-row {
+    width: 100%;
+    padding: 0 16px;
+    margin-bottom: 4px;
+    display: flex;
+    justify-content: flex-start;
+    z-index: 25;
+  }
+  .wood-score-plate {
+    background: linear-gradient(180deg, #ba7c41 0%, #874d22 60%, #60310e 100%);
+    border: 3px solid #eab078;
+    outline: 2px solid #3d1c07;
+    border-radius: 12px;
+    padding: 5px 20px;
+    color: #ffffff;
+    font-size: 17px;
+    font-weight: 900;
+    box-shadow: 0 6px 14px rgba(0,0,0,0.5);
+    text-shadow: 1px 2px 3px rgba(0,0,0,0.8);
+    letter-spacing: 0.5px;
+  }
+
+  .bottom-control-bar {
+    position: relative;
+    z-index: 30;
+    width: 100%;
+    padding: 4px 16px 18px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .wood-action-btn {
+    border: none;
+    border-radius: 18px;
+    cursor: pointer;
+    position: relative;
+    box-shadow: 0 6px 0px rgba(0,0,0,0.5), 0 8px 16px rgba(0,0,0,0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.08s ease;
+  }
+  .wood-action-btn:active {
+    transform: translateY(4px);
+    box-shadow: 0 2px 0px rgba(0,0,0,0.5);
+  }
+
+  .btn-orange-wood {
+    width: 72px;
+    height: 64px;
+    background: linear-gradient(180deg, #fb923c 0%, #ea580c 45%, #9a3412 100%);
+    border-top: 3px solid #fed7aa;
+    border-bottom: 4px solid #431407;
+    color: #ffffff;
+  }
+
+  .btn-green-wood {
+    flex: 1;
+    height: 70px;
+    background: linear-gradient(180deg, #4ade80 0%, #22c55e 35%, #15803d 85%, #052e16 100%);
+    border-top: 3px solid #bbf7d0;
+    border-bottom: 4px solid #052e16;
+    color: #ffffff;
+  }
+  .btn-green-wood svg {
+    filter: drop-shadow(1px 2px 3px rgba(0,0,0,0.5));
+  }
+
+  .jungle-foliage-bottom {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 120px;
+    pointer-events: none;
+    z-index: 20;
+    background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 140"><path d="M-20,150 Q40,30 90,120 Q140,20 200,130 Q280,10 330,120 Q400,20 460,110 Q500,40 520,150 Z" fill="%23062313" opacity="0.95"/><path d="M-10,150 Q30,60 80,130 Q160,40 240,140 Q320,35 380,135 Q440,50 510,150 Z" fill="%230f3f22"/></svg>') no-repeat bottom center;
+    background-size: cover;
+  }
+
+  /* Modals */
+  .modal-backdrop {
+    position: absolute;
+    inset: 0;
+    z-index: 100;
+    background: rgba(0,0,0,0.72);
+    backdrop-filter: blur(5px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .modal-backdrop.active { display: flex; }
+
+  .wood-modal-card {
+    background: linear-gradient(180deg, #ba7c41 0%, #874d22 50%, #542b0d 100%);
+    border: 4px solid #ffd8a8;
+    border-radius: 24px;
+    padding: 24px;
+    color: #fff9e6;
+    text-align: center;
+    box-shadow: 0 16px 40px rgba(0,0,0,0.8);
+    width: 100%;
+    max-width: 330px;
+  }
+  .wood-modal-card h2 {
+    font-size: 22px;
+    color: #fef08a;
+    margin-bottom: 12px;
+    text-shadow: 2px 2px 0px #3c1e08;
+    font-weight: 900;
+  }
+  .wood-modal-card p {
+    font-size: 14px;
+    margin-bottom: 12px;
+    line-height: 1.4;
+  }
+
+  .bet-input-box input {
+    width: 100%;
+    font-size: 24px;
+    font-weight: 900;
+    padding: 10px;
+    text-align: center;
+    border-radius: 12px;
+    border: 3px solid #fde047;
+    background: #301705;
+    color: #ffffff;
+    outline: none;
+    margin-bottom: 14px;
+  }
+
+  .modal-btn-action {
+    width: 100%;
+    padding: 12px;
+    background: linear-gradient(180deg, #facc15 0%, #ca8a04 100%);
+    border: none;
+    border-radius: 14px;
+    font-weight: 900;
+    color: #422006;
+    font-size: 17px;
+    cursor: pointer;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+  }
+</style>
+</head>
+<body>
+
+<div id="gameContainer">
+  <!-- SVG ASSET DEFINITIONS -->
+  <svg width="0" height="0" style="position:absolute">
+    <defs>
+      <!-- Ultra-realistic Shapla / Lily Pad Gradient -->
+      <radialGradient id="vibrantLilyGrad" cx="50%" cy="45%" r="58%">
+        <stop offset="0%" stop-color="#a3e635"/>
+        <stop offset="28%" stop-color="#65a30d"/>
+        <stop offset="65%" stop-color="#4d7c0f"/>
+        <stop offset="90%" stop-color="#14532d"/>
+        <stop offset="100%" stop-color="#052e16"/>
+      </radialGradient>
+
+      <radialGradient id="leafWaterDrop" cx="35%" cy="30%" r="50%">
+        <stop offset="0%" stop-color="#ffffff"/>
+        <stop offset="45%" stop-color="#bbf7d0"/>
+        <stop offset="80%" stop-color="#22c55e"/>
+        <stop offset="100%" stop-color="#0f5127"/>
+      </radialGradient>
+
+      <!-- The High Quality Lily Pad -->
+      <g id="masterRealShaplaLeaf">
+        <path d="
+          M 50,48
+          L 84,18
+          C 88,24 93,31 94,39
+          C 96,47 95,56 91,64
+          C 87,72 80,79 73,85
+          C 66,91 58,95 50,96
+          C 42,95 34,91 27,85
+          C 20,79 13,72 9,64
+          C 5,56 4,47 6,39
+          C 7,31 12,24 16,18
+          L 50,48 Z
+        " fill="url(#vibrantLilyGrad)" stroke="#166534" stroke-width="1.8" />
+
+        <!-- Leaf Ribs / Veins -->
+        <path d="M 50,48 Q 30,30 18,22" stroke="#d9f99d" stroke-width="1.6" opacity="0.65" fill="none"/>
+        <path d="M 50,48 Q 22,50 8,58" stroke="#d9f99d" stroke-width="1.6" opacity="0.65" fill="none"/>
+        <path d="M 50,48 Q 28,74 20,84" stroke="#d9f99d" stroke-width="1.6" opacity="0.65" fill="none"/>
+        <path d="M 50,48 Q 50,78 50,95" stroke="#d9f99d" stroke-width="1.6" opacity="0.65" fill="none"/>
+        <path d="M 50,48 Q 72,74 80,84" stroke="#d9f99d" stroke-width="1.6" opacity="0.65" fill="none"/>
+        <path d="M 50,48 Q 78,50 92,58" stroke="#d9f99d" stroke-width="1.6" opacity="0.65" fill="none"/>
+        <path d="M 50,48 Q 70,30 82,22" stroke="#d9f99d" stroke-width="1.6" opacity="0.65" fill="none"/>
+
+        <!-- Water / Dew Drops on leaf surface -->
+        <ellipse cx="32" cy="40" rx="6.5" ry="5" fill="url(#leafWaterDrop)" opacity="0.9"/>
+        <ellipse cx="30" cy="38.5" rx="2.2" ry="1.4" fill="#ffffff" opacity="0.95"/>
+
+        <ellipse cx="66" cy="54" rx="5.5" ry="4.5" fill="url(#leafWaterDrop)" opacity="0.88"/>
+        <ellipse cx="64.5" cy="52.8" rx="1.8" ry="1.2" fill="#ffffff" opacity="0.9"/>
+
+        <circle cx="50" cy="80" r="4.2" fill="url(#leafWaterDrop)" opacity="0.88"/>
+        <circle cx="49" cy="78.8" r="1.5" fill="#ffffff"/>
+
+        <circle cx="72" cy="36" r="3.2" fill="url(#leafWaterDrop)" opacity="0.85"/>
+        <circle cx="71" cy="35" r="1.1" fill="#ffffff"/>
+      </g>
+
+      <!-- Accurate Green Frog Gradients matching the Screenshot -->
+      <radialGradient id="frogSkinGrad" cx="50%" cy="40%" r="58%">
+        <stop offset="0%" stop-color="#a3e635"/>
+        <stop offset="35%" stop-color="#84cc16"/>
+        <stop offset="70%" stop-color="#65a30d"/>
+        <stop offset="100%" stop-color="#4d7c0f"/>
+      </radialGradient>
+
+      <radialGradient id="frogBackHighlight" cx="45%" cy="35%" r="45%">
+        <stop offset="0%" stop-color="#bef264" stop-opacity="0.9"/>
+        <stop offset="60%" stop-color="#84cc16" stop-opacity="0.5"/>
+        <stop offset="100%" stop-color="#65a30d" stop-opacity="0"/>
+      </radialGradient>
+
+      <radialGradient id="toeSuctionGrad" cx="40%" cy="40%" r="50%">
+        <stop offset="0%" stop-color="#bef264"/>
+        <stop offset="70%" stop-color="#84cc16"/>
+        <stop offset="100%" stop-color="#4d7c0f"/>
+      </radialGradient>
+    </defs>
+  </svg>
+
+  <canvas id="waterCanvas"></canvas>
+
+  <header class="top-header-clean">
+    <div class="wallet-badge">
+      <span class="coin-text" id="lblUserBalance">0.00 ৳</span>
+    </div>
+  </header>
+
+  <div class="signboard-area">
+    <div class="wood-sign-arrow">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="#4ade80">
+        <path d="M12 2a5 5 0 0 0-5 5c0 1.5.7 2.8 1.7 3.7C4.6 12 2 15.5 2 20a1 1 0 0 0 1 1h18a1 1 0 0 0 1-1c0-4.5-2.6-8-6.7-9.3 1-.9 1.7-2.2 1.7-3.7a5 5 0 0 0-5-5z"/>
+      </svg>
+      <h1>SWAMP QUEST</h1>
+    </div>
+    <div class="wood-message-plank" id="lblMainBanner">Place a bet</div>
+  </div>
+
+  <div class="pond-play-area">
+    <div class="grid-water-surface" id="gridPondWrap"></div>
+
+    <div class="home-base-pad-wrap">
+      <div class="pad-node" id="baseHomeLily">
+        <svg class="pad-svg-instance" viewBox="0 0 100 100">
+          <use href="#masterRealShaplaLeaf" />
+        </svg>
+      </div>
+    </div>
+  </div>
+
+  <!-- Real Tree Frog Matching the Screenshot -->
+  <div id="gameFrog">
+    <div class="frog-inner-animator">
+      <svg viewBox="0 0 100 110" width="100%" height="100%">
+        <!-- HIND LEGS (Left & Right) -->
+        <g class="frog-leg-left">
+          <!-- Left Leg Thigh & Bent Knee -->
+          <path d="M 36,66 C 18,65 10,75 14,84 C 18,92 30,95 38,82 C 40,78 38,72 36,66 Z" fill="url(#frogSkinGrad)" />
+          <!-- Left Foot Webbed Digits with Suction Discs -->
+          <path d="M 14,84 C 8,86 4,82 6,76" stroke="#65a30d" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+          <circle cx="6" cy="76" r="3" fill="url(#toeSuctionGrad)" stroke="#4d7c0f" stroke-width="1"/>
+          
+          <path d="M 14,84 C 6,89 2,92 5,98" stroke="#65a30d" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+          <circle cx="5" cy="98" r="3" fill="url(#toeSuctionGrad)" stroke="#4d7c0f" stroke-width="1"/>
+
+          <path d="M 16,88 C 12,96 11,102 18,103" stroke="#65a30d" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+          <circle cx="18" cy="103" r="3" fill="url(#toeSuctionGrad)" stroke="#4d7c0f" stroke-width="1"/>
+        </g>
+
+        <g class="frog-leg-right">
+          <!-- Right Leg Thigh & Bent Knee -->
+          <path d="M 64,66 C 82,65 90,75 86,84 C 82,92 70,95 62,82 C 60,78 62,72 64,66 Z" fill="url(#frogSkinGrad)" />
+          <!-- Right Foot Webbed Digits with Suction Discs -->
+          <path d="M 86,84 C 92,86 96,82 94,76" stroke="#65a30d" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+          <circle cx="94" cy="76" r="3" fill="url(#toeSuctionGrad)" stroke="#4d7c0f" stroke-width="1"/>
+
+          <path d="M 86,84 C 94,89 98,92 95,98" stroke="#65a30d" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+          <circle cx="95" cy="98" r="3" fill="url(#toeSuctionGrad)" stroke="#4d7c0f" stroke-width="1"/>
+
+          <path d="M 84,88 C 88,96 89,102 82,103" stroke="#65a30d" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+          <circle cx="82" cy="103" r="3" fill="url(#toeSuctionGrad)" stroke="#4d7c0f" stroke-width="1"/>
+        </g>
+
+        <!-- FRONT ARMS (Left & Right) -->
+        <g class="frog-arm-left">
+          <!-- Left Arm Reach Outward -->
+          <path d="M 34,42 C 22,36 16,32 18,22 C 19,16 26,20 28,30" stroke="#65a30d" stroke-width="5" fill="none" stroke-linecap="round"/>
+          <!-- 4 Extended Long Slender Fingers with round suction pads -->
+          <path d="M 18,22 C 12,18 8,16 9,10" stroke="#65a30d" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+          <circle cx="9" cy="10" r="3" fill="url(#toeSuctionGrad)" stroke="#4d7c0f" stroke-width="1"/>
+
+          <path d="M 18,22 C 15,14 17,6 22,6" stroke="#65a30d" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+          <circle cx="22" cy="6" r="3" fill="url(#toeSuctionGrad)" stroke="#4d7c0f" stroke-width="1"/>
+
+          <path d="M 19,23 C 22,17 26,11 31,14" stroke="#65a30d" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+          <circle cx="31" cy="14" r="3" fill="url(#toeSuctionGrad)" stroke="#4d7c0f" stroke-width="1"/>
+
+          <path d="M 19,25 C 24,24 28,24 30,28" stroke="#65a30d" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+          <circle cx="30" cy="28" r="3" fill="url(#toeSuctionGrad)" stroke="#4d7c0f" stroke-width="1"/>
+        </g>
+
+        <g class="frog-arm-right">
+          <!-- Right Arm Reach Outward -->
+          <path d="M 66,42 C 78,36 84,32 82,22 C 81,16 74,20 72,30" stroke="#65a30d" stroke-width="5" fill="none" stroke-linecap="round"/>
+          <!-- 4 Extended Long Slender Fingers with round suction pads -->
+          <path d="M 82,22 C 88,18 92,16 91,10" stroke="#65a30d" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+          <circle cx="91" cy="10" r="3" fill="url(#toeSuctionGrad)" stroke="#4d7c0f" stroke-width="1"/>
+
+          <path d="M 82,22 C 85,14 83,6 78,6" stroke="#65a30d" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+          <circle cx="78" cy="6" r="3" fill="url(#toeSuctionGrad)" stroke="#4d7c0f" stroke-width="1"/>
+
+          <path d="M 81,23 C 78,17 74,11 69,14" stroke="#65a30d" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+          <circle cx="69" cy="14" r="3" fill="url(#toeSuctionGrad)" stroke="#4d7c0f" stroke-width="1"/>
+
+          <path d="M 81,25 C 76,24 72,24 70,28" stroke="#65a30d" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+          <circle cx="70" cy="28" r="3" fill="url(#toeSuctionGrad)" stroke="#4d7c0f" stroke-width="1"/>
+        </g>
+
+        <!-- MAIN BODY & HEAD (Exact organic pear-shape from screenshot) -->
+        <g id="frogTorso">
+          <!-- Main Body -->
+          <path d="
+            M 50,4
+            C 58,4 62,8 65,15
+            C 68,22 64,30 63,38
+            C 62,45 70,55 72,66
+            C 74,78 68,88 50,88
+            C 32,88 26,78 28,66
+            C 30,55 38,45 37,38
+            C 36,30 32,22 35,15
+            C 38,8 42,4 50,4 Z
+          " fill="url(#frogSkinGrad)" />
+
+          <!-- Back 3D Highlight & Gloss Contour -->
+          <path d="
+            M 50,10
+            C 55,10 58,15 59,25
+            C 60,35 66,54 64,68
+            C 62,78 58,82 50,82
+            C 42,82 38,78 36,68
+            C 34,54 40,35 41,25
+            C 42,15 45,10 50,10 Z
+          " fill="url(#frogBackHighlight)" />
+
+          <!-- Eyes on the sides of the head (Matching the black side contours in image) -->
+          <ellipse cx="32" cy="18" rx="2.5" ry="5.5" fill="#111827" transform="rotate(-15 32 18)"/>
+          <ellipse cx="68" cy="18" rx="2.5" ry="5.5" fill="#111827" transform="rotate(15 68 18)"/>
+
+          <!-- Subtle Eye Highlights -->
+          <circle cx="32" cy="17" r="1.1" fill="#ffffff"/>
+          <circle cx="68" cy="17" r="1.1" fill="#ffffff"/>
+        </g>
+      </svg>
+    </div>
+  </div>
+
+  <div class="scoreboard-row">
+    <div class="wood-score-plate" id="lblLiveScore">0 ৳</div>
+  </div>
+
+  <footer class="bottom-control-bar">
+    <button class="wood-action-btn btn-orange-wood" id="btnOpenBetModal" title="Set Bet">
+      <svg width="34" height="34" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12 2C6.48 2 2 3.79 2 6v12c0 2.21 4.48 4 10 4s10-1.79 10-4V6c0-2.21-4.48-4-10-4zm0 2c4.96 0 8 1.43 8 2s-3.04 2-8 2-8-1.43-8-2 3.04-2 8-2zm0 4c4.96 0 8 1.43 8 2s-3.04 2-8 2-8-1.43-8-2 3.04-2 8-2zm0 4c4.96 0 8 1.43 8 2s-3.04 2-8 2-8-1.43-8-2 3.04-2 8-2zm0 4c4.96 0 8 1.43 8 2s-3.04 2-8 2-8-1.43-8-2 3.04-2 8-2z"/>
+      </svg>
+    </button>
+
+    <button class="wood-action-btn btn-green-wood" id="btnMainAction">
+      <svg id="svgActionIcon" width="40" height="40" viewBox="0 0 24 24" fill="currentColor">
+        <polygon points="6 3 20 12 6 21 6 3"/>
+      </svg>
+    </button>
+
+    <button class="wood-action-btn btn-orange-wood" id="btnOpenInfoModal" title="Rules">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
+      </svg>
+    </button>
+  </footer>
+
+  <div class="jungle-foliage-bottom"></div>
+
+  <!-- Bet Modal -->
+  <div class="modal-backdrop" id="modalBet">
+    <div class="wood-modal-card">
+      <h2>SET YOUR BET</h2>
+      <p>Enter amount (Min: <strong>5</strong> | Max: <strong>59,999</strong> ৳):</p>
+      <div class="bet-input-box">
+        <input type="number" id="txtCustomBet" min="5" max="59999" value="20" />
+      </div>
+      <button class="modal-btn-action" id="btnConfirmBet">CONFIRM BET</button>
+    </div>
+  </div>
+
+  <!-- Info Modal -->
+  <div class="modal-backdrop" id="modalInfo">
+    <div class="wood-modal-card">
+      <h2>SWAMP QUEST RULES</h2>
+      <p>1. Tap the green <strong>PLAY</strong> button to start.</p>
+      <p>2. Tap any lily pad on the highlighted active row.</p>
+      <p>3. Avoid rotten leaves (they sink underwater!):</p>
+      <p style="font-size:13px; color:#fde047; margin-bottom:8px;">
+        Line 1: 1 rotten • Line 2: 2 rotten<br>
+        Line 3: 3 rotten • Line 4: 4 rotten<br>
+        Line 5: 2 rotten
+      </p>
+      <p>4. 100% Synced with your FD44 main balance!</p>
+      <button class="modal-btn-action" onclick="document.getElementById('modalInfo').classList.remove('active')">CLOSE</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ==========================================================
+   FIREBASE REALTIME DATABASE SYNC
+   ========================================================== */
+const firebaseConfig = {
+  apiKey: "AIzaSyAzG6l80RC_DnwKk7KlvVod2YU8GIC2oio",
+  authDomain: "nskk-2ca2d.firebaseapp.com",
+  databaseURL: "https://nskk-2ca2d-default-rtdb.firebaseio.com",
+  projectId: "nskk-2ca2d",
+  storageBucket: "nskk-2ca2d.firebasestorage.app",
+  messagingSenderId: "629774743594",
+  appId: "1:629774743594:web:a1610ad2d204eb791deb53",
+  measurementId: "G-YDXWDVFPZ3"
+};
+
+if (!firebase.apps.length) {
+  firebase.initializeApp(firebaseConfig);
+}
+const database = firebase.database();
+let activePhone = null;
+
+const GAME_ROWS = [
+  { rotten: 1, multStr: "x1.3", multVal: 1.30 },
+  { rotten: 2, multStr: "x2.17", multVal: 2.17 },
+  { rotten: 3, multStr: "x5.43", multVal: 5.43 },
+  { rotten: 4, multStr: "x13.58", multVal: 13.58 },
+  { rotten: 2, multStr: "x27.16", multVal: 27.16 }
+];
+
+const PADS_PER_ROW = 5;
+let userBalance = 0.00;
+let currentBet = 20;
+let accumulatedPoints = 0;
+let currentRowIndex = -1;
+let isRoundActive = false;
+let isMidAirJump = false;
+let rowHazardMap = [];
+
+const container = document.getElementById('gameContainer');
+const gridPondWrap = document.getElementById('gridPondWrap');
+const baseHomeLily = document.getElementById('baseHomeLily');
+const frog = document.getElementById('gameFrog');
+const lblUserBalance = document.getElementById('lblUserBalance');
+const lblLiveScore = document.getElementById('lblLiveScore');
+const lblMainBanner = document.getElementById('lblMainBanner');
+const btnMainAction = document.getElementById('btnMainAction');
+const svgActionIcon = document.getElementById('svgActionIcon');
+const btnOpenBetModal = document.getElementById('btnOpenBetModal');
+const btnOpenInfoModal = document.getElementById('btnOpenInfoModal');
+const modalBet = document.getElementById('modalBet');
+const modalInfo = document.getElementById('modalInfo');
+const txtCustomBet = document.getElementById('txtCustomBet');
+const btnConfirmBet = document.getElementById('btnConfirmBet');
+
+function initUserDatabaseSync() {
+  const urlParams = new URLSearchParams(window.location.search);
+  let phoneFound = urlParams.get('phone') || urlParams.get('user') || urlParams.get('uid');
+
+  if (!phoneFound) {
+    try {
+      if (window.parent && window.parent.user && window.parent.user.phone) {
+        phoneFound = window.parent.user.phone;
+      }
+    } catch(e) {}
+  }
+
+  if (!phoneFound) {
+    try {
+      phoneFound = localStorage.getItem('bd99_user');
+    } catch(e) {}
+  }
+
+  if (phoneFound) {
+    bindUserAccount(phoneFound);
+  } else {
+    database.ref('users').limitToLast(1).once('value', (snap) => {
+      if (snap.exists()) {
+        const data = snap.val();
+        const lastPhone = Object.keys(data)[0];
+        if (lastPhone) bindUserAccount(lastPhone);
+      }
+    });
+  }
+}
+
+function bindUserAccount(phone) {
+  activePhone = phone;
+  try { localStorage.setItem('bd99_user', phone); } catch(e) {}
+
+  database.ref('users/' + phone + '/balance').on('value', (snapshot) => {
+    if (snapshot.exists() && snapshot.val() !== null) {
+      userBalance = parseFloat(snapshot.val()) || 0;
+      updateBalanceDisplay();
+
+      try {
+        if (window.parent && window.parent.document) {
+          window.parent.document.querySelectorAll('.userBalance').forEach(e => {
+            e.innerText = userBalance.toFixed(2);
+          });
+        }
+      } catch(e) {}
+    }
+  });
+}
+
+function deductRealBalance(amount) {
+  userBalance = parseFloat((userBalance - amount).toFixed(2));
+  updateBalanceDisplay();
+
+  if (activePhone) {
+    database.ref('users/' + activePhone + '/balance').transaction((curr) => {
+      let val = parseFloat(curr);
+      if (isNaN(val)) return 0;
+      return Math.max(0, parseFloat((val - amount).toFixed(2)));
+    });
+
+    database.ref('users/' + activePhone + '/wager_left').transaction((curr) => {
+      let left = parseFloat(curr || 0) - amount;
+      return left < 0 ? 0 : parseFloat(left.toFixed(2));
+    });
+  }
+
+  try {
+    if (window.parent && window.parent.document) {
+      window.parent.document.querySelectorAll('.userBalance').forEach(e => {
+        e.innerText = userBalance.toFixed(2);
+      });
+    }
+  } catch(e) {}
+}
+
+function addRealBalance(amount) {
+  if (amount <= 0) return;
+  userBalance = parseFloat((userBalance + amount).toFixed(2));
+  updateBalanceDisplay();
+
+  if (activePhone) {
+    database.ref('users/' + activePhone + '/balance').transaction((curr) => {
+      let val = parseFloat(curr || 0);
+      return parseFloat((val + amount).toFixed(2));
+    });
+  }
+
+  try {
+    if (window.parent && window.parent.document) {
+      window.parent.document.querySelectorAll('.userBalance').forEach(e => {
+        e.innerText = userBalance.toFixed(2);
+      });
+    }
+  } catch(e) {}
+}
+
+function updateBalanceDisplay() {
+  lblUserBalance.innerText = `${userBalance.toFixed(2)} ৳`;
+}
+
+/* Audio Synthesizer */
+const AudioCtx = window.AudioContext || window.webkitAudioContext;
+let audioContext = null;
+
+function triggerSfx(name) {
+  try {
+    if (!audioContext) audioContext = new AudioCtx();
+    if (audioContext.state === 'suspended') audioContext.resume();
+    const t = audioContext.currentTime;
+    const osc = audioContext.createOscillator();
+    const gain = audioContext.createGain();
+
+    if (name === 'jump') {
+      osc.frequency.setValueAtTime(220, t);
+      osc.frequency.exponentialRampToValueAtTime(750, t + 0.22);
+      gain.gain.setValueAtTime(0.2, t);
+      gain.gain.exponentialRampToValueAtTime(0.01, t + 0.24);
+      osc.connect(gain); gain.connect(audioContext.destination);
+      osc.start(t); osc.stop(t + 0.25);
+    } else if (name === 'splash') {
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(140, t);
+      osc.frequency.exponentialRampToValueAtTime(45, t + 0.3);
+      gain.gain.setValueAtTime(0.3, t);
+      gain.gain.exponentialRampToValueAtTime(0.01, t + 0.32);
+      osc.connect(gain); gain.connect(audioContext.destination);
+      osc.start(t); osc.stop(t + 0.32);
+    } else if (name === 'sink') {
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(180, t);
+      osc.frequency.exponentialRampToValueAtTime(40, t + 0.5);
+      gain.gain.setValueAtTime(0.25, t);
+      gain.gain.exponentialRampToValueAtTime(0.01, t + 0.5);
+      osc.connect(gain); gain.connect(audioContext.destination);
+      osc.start(t); osc.stop(t + 0.5);
+    } else if (name === 'win') {
+      osc.frequency.setValueAtTime(520, t);
+      osc.frequency.setValueAtTime(820, t + 0.1);
+      gain.gain.setValueAtTime(0.2, t);
+      gain.gain.exponentialRampToValueAtTime(0.01, t + 0.35);
+      osc.connect(gain); gain.connect(audioContext.destination);
+      osc.start(t); osc.stop(t + 0.35);
+    }
+  } catch(e) {}
+}
+
+function buildSwampBoard() {
+  gridPondWrap.innerHTML = '';
+  rowHazardMap = [];
+
+  for (let r = 0; r < GAME_ROWS.length; r++) {
+    const count = GAME_ROWS[r].rotten;
+    const hazards = [];
+    while (hazards.length < count) {
+      const rand = Math.floor(Math.random() * PADS_PER_ROW);
+      if (!hazards.includes(rand)) hazards.push(rand);
+    }
+    rowHazardMap.push(hazards);
+
+    const rowElem = document.createElement('div');
+    rowElem.className = 'pond-row';
+    rowElem.dataset.row = r;
+
+    const multBadge = document.createElement('div');
+    multBadge.className = 'row-multiplier-pill';
+    multBadge.innerText = GAME_ROWS[r].multStr;
+    rowElem.appendChild(multBadge);
+
+    for (let c = 0; c < PADS_PER_ROW; c++) {
+      const padNode = document.createElement('div');
+      padNode.className = 'pad-node';
+      padNode.dataset.row = r;
+      padNode.dataset.col = c;
+      padNode.innerHTML = `
+        <svg class="pad-svg-instance" viewBox="0 0 100 100">
+          <use href="#masterRealShaplaLeaf" />
+        </svg>
+      `;
+
+      padNode.addEventListener('click', () => onPadSelected(r, c, padNode));
+      rowElem.appendChild(padNode);
+    }
+
+    gridPondWrap.appendChild(rowElem);
+  }
+}
+
+/* LEAPING WITH SPREAD LEGS & ARMS */
+function leapFrogTo(targetElem, isAnimated = true) {
+  const targetRect = targetElem.getBoundingClientRect();
+  const cRect = container.getBoundingClientRect();
+
+  const targetX = targetRect.left - cRect.left + targetRect.width / 2;
+  const targetY = targetRect.top - cRect.top + targetRect.height / 2;
+
+  if (!isAnimated) {
+    frog.className = '';
+    frog.style.transition = 'none';
+    frog.style.left = `${targetX}px`;
+    frog.style.top = `${targetY}px`;
+    return;
+  }
+
+  isMidAirJump = true;
+  triggerSfx('jump');
+
+  // Trigger stretch animation
+  frog.classList.add('frog-in-flight');
+  frog.style.left = `${targetX}px`;
+  frog.style.top = `${targetY}px`;
+
+  setTimeout(() => {
+    // Land on the pad
+    frog.classList.remove('frog-in-flight');
+    isMidAirJump = false;
+
+    targetElem.classList.add('landed-weight');
+    createWaterSplash(targetX, targetY);
+    triggerSfx('splash');
+  }, 440);
+}
+
+function createWaterSplash(x, y) {
+  const ring = document.createElement('div');
+  ring.className = 'water-splash-ring';
+  ring.style.left = `${x}px`;
+  ring.style.top = `${y}px`;
+  container.appendChild(ring);
+  spawnDynamicRipple(x, y, 70);
+  setTimeout(() => ring.remove(), 650);
+}
+
+function returnFrogToHome() {
+  document.querySelectorAll('.pad-node').forEach(p => p.classList.remove('landed-weight'));
+  leapFrogTo(baseHomeLily, false);
+}
+
+function updateActiveRowVisuals() {
+  const allPads = document.querySelectorAll('.pad-node');
+  allPads.forEach(pad => {
+    const r = parseInt(pad.dataset.row);
+    if (isRoundActive && r === currentRowIndex) {
+      pad.classList.add('active-row');
+    } else {
+      pad.classList.remove('active-row');
+    }
+  });
+}
+
+function handleMainPlay() {
+  if (!isRoundActive) {
+    if (userBalance < currentBet) {
+      lblMainBanner.innerText = "Insufficient Balance! Recharge FD44.";
+      return;
+    }
+
+    deductRealBalance(currentBet);
+
+    accumulatedPoints = currentBet;
+    lblLiveScore.innerText = `${accumulatedPoints.toFixed(2)} ৳`;
+
+    buildSwampBoard();
+    currentRowIndex = 0;
+    isRoundActive = true;
+    lblMainBanner.innerText = "Select a safe lily pad!";
+
+    svgActionIcon.innerHTML = `<rect x="5" y="5" width="14" height="14" rx="2" fill="currentColor"/>`;
+    updateActiveRowVisuals();
+    returnFrogToHome();
+  } else {
+    if (currentRowIndex > 0) {
+      addRealBalance(accumulatedPoints);
+      lblMainBanner.innerText = `Banked +${accumulatedPoints.toFixed(2)} ৳! 🎉`;
+      triggerSfx('win');
+      resetGameRound();
+    }
+  }
+}
+
+function resetGameRound() {
+  isRoundActive = false;
+  currentRowIndex = -1;
+  accumulatedPoints = 0;
+  lblLiveScore.innerText = `0 ৳`;
+  svgActionIcon.innerHTML = `<polygon points="6 3 20 12 6 21 6 3"/>`;
+  updateActiveRowVisuals();
+  setTimeout(returnFrogToHome, 500);
+}
+
+function onPadSelected(r, c, padNode) {
+  if (!isRoundActive || isMidAirJump) return;
+  if (r !== currentRowIndex) return;
+
+  const isRotten = rowHazardMap[r].includes(c);
+  leapFrogTo(padNode, true);
+
+  setTimeout(() => {
+    if (isRotten) {
+      padNode.classList.add('sinking-rotten');
+      triggerSfx('sink');
+      lblMainBanner.innerText = "Leaf sank! Splash 💦";
+
+      const rect = padNode.getBoundingClientRect();
+      const cRect = container.getBoundingClientRect();
+      createWaterSplash(rect.left - cRect.left + rect.width / 2, rect.top - cRect.top + rect.height / 2);
+
+      resetGameRound();
+    } else {
+      triggerSfx('win');
+      const mult = GAME_ROWS[r].multVal;
+      accumulatedPoints = parseFloat((currentBet * mult).toFixed(2));
+      lblLiveScore.innerText = `${accumulatedPoints.toFixed(2)} ৳`;
+
+      if (r === GAME_ROWS.length - 1) {
+        addRealBalance(accumulatedPoints);
+        lblMainBanner.innerText = `🏆 POND CLEARED! +${accumulatedPoints.toFixed(2)} ৳!`;
+        resetGameRound();
+      } else {
+        currentRowIndex++;
+        lblMainBanner.innerText = `Line ${r + 1} Cleared! (${GAME_ROWS[r].multStr})`;
+        updateActiveRowVisuals();
+      }
+    }
+  }, 450);
+}
+
+btnOpenBetModal.addEventListener('click', () => {
+  if (isRoundActive) return;
+  txtCustomBet.value = currentBet;
+  modalBet.classList.add('active');
+});
+
+btnConfirmBet.addEventListener('click', () => {
+  let val = parseInt(txtCustomBet.value);
+  if (isNaN(val) || val < 5) val = 5;
+  if (val > 59999) val = 59999;
+  currentBet = val;
+  lblMainBanner.innerText = `Bet set: ${currentBet} ৳`;
+  modalBet.classList.remove('active');
+});
+
+btnMainAction.addEventListener('click', handleMainPlay);
+btnOpenInfoModal.addEventListener('click', () => modalInfo.classList.add('active'));
+
+modalBet.addEventListener('click', (e) => { if (e.target === modalBet) modalBet.classList.remove('active'); });
+modalInfo.addEventListener('click', (e) => { if (e.target === modalInfo) modalInfo.classList.remove('active'); });
+
+/* Water Caustics Canvas */
+const canvas = document.getElementById('waterCanvas');
+const ctx = canvas.getContext('2d');
+let ripples = [];
+
+function resizeCanvas() {
+  canvas.width = container.clientWidth;
+  canvas.height = container.clientHeight;
+}
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+function spawnDynamicRipple(x, y, maxR = 60) {
+  ripples.push({ x, y, r: 4, maxR, alpha: 0.75 });
+}
+
+let animTime = 0;
+function renderWater() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  animTime += 0.025;
+
+  const grad = ctx.createRadialGradient(
+    canvas.width * 0.5 + Math.sin(animTime) * 45,
+    canvas.height * 0.32 + Math.cos(animTime * 0.8) * 35,
+    15,
+    canvas.width * 0.5,
+    canvas.height * 0.4,
+    canvas.width * 0.8
+  );
+  grad.addColorStop(0, 'rgba(255, 255, 255, 0.22)');
+  grad.addColorStop(0.4, 'rgba(56, 189, 248, 0.1)');
+  grad.addColorStop(1, 'rgba(2, 132, 199, 0)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  for (let i = ripples.length - 1; i >= 0; i--) {
+    const r = ripples[i];
+    r.r += 1.6;
+    r.alpha -= 0.016;
+    if (r.alpha <= 0 || r.r >= r.maxR) {
+      ripples.splice(i, 1);
+      continue;
+    }
+    ctx.beginPath();
+    ctx.arc(r.x, r.y, r.r, 0, Math.PI * 2);
+    ctx.strokeStyle = `rgba(255, 255, 255, ${r.alpha})`;
+    ctx.lineWidth = 2.2;
+    ctx.stroke();
+  }
+
+  requestAnimationFrame(renderWater);
+}
+renderWater();
+
+setInterval(() => {
+  if (Math.random() > 0.45) {
+    spawnDynamicRipple(Math.random() * canvas.width, Math.random() * canvas.height, 40);
+  }
+}, 850);
+
+window.addEventListener('load', () => {
+  initUserDatabaseSync();
+  buildSwampBoard();
+  setTimeout(returnFrogToHome, 150);
+});
+</script>
+</body>
+</html>
